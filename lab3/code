@@ -1,0 +1,161 @@
+#include <iostream>
+#include <stdexcept>
+#include <utility>
+
+// Шаблонный класс динамического массива
+template <typename T>
+class Vector {
+private:
+    T* data;   // указатель на массив в куче
+    int sz;     // количество реально хранимых элементов
+    int cap;    // количество элементов, помещающихся без перевыделения (cap >= sz)
+
+public:
+    // Конструктор по умолчанию: пустой вектор, память не выделяется
+    Vector() : data(nullptr), sz(0), cap(0) {}
+
+    // Конструктор размера: n элементов, инициализируются T()
+    explicit Vector(int n) : data(nullptr), sz(n), cap(n) {
+        if (n > 0) data = new T[n]();
+    }
+
+    // Конструктор копирования: выполняется глубокое копирование (создаётся новый массив)
+    Vector(const Vector& other) : data(nullptr), sz(other.sz), cap(other.cap) {
+        if (cap > 0) {
+            data = new T[cap];
+            for (int i = 0; i < sz; ++i) data[i] = other.data[i];
+        }
+    }
+
+    // Конструктор перемещения: указатель забирается у источника, сложность O(1)
+    Vector(Vector&& other) noexcept
+        : data(other.data), sz(other.sz), cap(other.cap) {
+        other.data = nullptr;
+        other.sz = 0;
+        other.cap = 0;
+    }
+
+    // Деструктор: массив, выделенный через new[], освобождается
+    ~Vector() { delete[] data; }
+
+    // Присваивание копированием по идиоме copy-and-swap
+    Vector& operator=(const Vector& other) {
+        if (this != &other) {          // выполняется защита от самоприсваивания
+            Vector temp(other);        // данные копируются во временный объект
+            swap(temp);                // затем содержимое обменивается
+        }
+        return *this;
+    }
+
+    // Присваивание перемещением: своя память освобождается, чужая забирается
+    Vector& operator=(Vector&& other) noexcept {
+        if (this != &other) {
+            delete[] data;
+            data = other.data;
+            sz = other.sz;
+            cap = other.cap;
+            other.data = nullptr;
+            other.sz = 0;
+            other.cap = 0;
+        }
+        return *this;
+    }
+
+    // Доступ по индексу: границы проверяются
+    T& operator[](int i) {
+        if (i < 0 || i >= sz) throw std::out_of_range("Index out of range");
+        return data[i];
+    }
+    const T& operator[](int i) const {
+        if (i < 0 || i >= sz) throw std::out_of_range("Index out of range");
+        return data[i];
+    }
+
+    // Геттеры (поля приватные)
+    int size()     const { return sz; }
+    int capacity() const { return cap; }
+    bool empty()   const { return sz == 0; }
+
+    // Выделяется новая память большего размера, элементы переносятся
+    void reserve(int newCap) {
+        if (newCap <= cap) return;      // памяти уже хватает
+        T* newData = new T[newCap];
+        for (int i = 0; i < sz; ++i) newData[i] = data[i];
+        delete[] data;
+        data = newData;
+        cap = newCap;
+    }
+
+    // Добавление в конец: при переполнении ёмкость удваивается
+    void push_back(const T& value) {
+        if (sz >= cap) reserve(cap == 0 ? 1 : cap * 2);
+        data[sz++] = value;
+    }
+
+    // Удаление последнего элемента
+    void pop_back() {
+        if (empty()) throw std::underflow_error("Vector is empty");
+        --sz;
+    }
+
+    // Обмен содержимым (используется в copy-and-swap)
+    void swap(Vector& other) noexcept {
+        std::swap(data, other.data);
+        std::swap(sz, other.sz);
+        std::swap(cap, other.cap);
+    }
+
+    // Итераторы: в данном случае это просто указатели
+    T* begin() { return data; }
+    T* end() { return data + sz; }
+    const T* begin() const { return data; }
+    const T* end()   const { return data + sz; }
+
+    // Конкатенация: создаётся новый вектор, элементы копируются
+    // Сложность O(n + m), где n = this->sz, m = other.sz.
+    Vector operator+(const Vector& other) const {
+        Vector result;
+        result.reserve(sz + other.sz);          // память выделяется заранее
+        for (int i = 0; i < sz; ++i)       result.push_back(data[i]);
+        for (int i = 0; i < other.sz; ++i) result.push_back(other.data[i]);
+        return result;
+    }
+
+    // Умножение на число: Vector * scalar
+    // Текущий вектор копируется, каждый элемент умножается. O(n).
+    Vector operator*(const T& k) const {
+        Vector result(*this);
+        for (int i = 0; i < result.sz; ++i)
+            result.data[i] = result.data[i] * k;
+        return result;
+    }
+
+    // Умножение на число: scalar * Vector (дружественная перегрузка)
+    friend Vector operator*(const T& k, const Vector& v) {
+        return v * k;                           // переиспользуется уже написанный оператор
+    }
+};
+
+int main() {
+    setlocale(LC_ALL, "ru");
+
+    Vector<int> a, b;
+    for (int i = 1; i <= 5; ++i) a.push_back(i);        // a = [1,2,3,4,5]
+    for (int i = 1; i <= 3; ++i) b.push_back(i * 10);   // b = [10,20,30]
+
+    // Утилита вывода: вектор перебирается через range-based for
+    auto print = [](const char* name, const Vector<int>& v) {
+        std::cout << name << " = ";
+        for (int x : v) std::cout << x << " ";
+        std::cout << "\n";
+        };
+
+    print("a", a);
+    print("b", b);
+    print("a + b", a + b);             // конкатенация
+    print("a * 3", a * 3);             // Vector * scalar
+    print("3 * a", 3 * a);             // scalar * Vector
+    print("(a + b) * 2", (a + b) * 2); // композиция операторов
+
+    return 0;
+}
