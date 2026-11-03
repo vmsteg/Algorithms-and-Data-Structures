@@ -52,7 +52,7 @@
 #include <stdexcept>
 #include <utility>
 
-// Шаблонный класс динамического массива (аналог std::vector)
+// Класс динамического массива
 template <typename T>
 class Vector {
 private:
@@ -88,7 +88,7 @@ public:
     // Деструктор: массив, выделенный через new[], освобождается
     ~Vector() { delete[] data; }
 
-    // Присваивание копированием по идиоме copy-and-swap
+    // Присваивание копированием по copy-and-swap
     Vector& operator=(const Vector& other) {
         if (this != &other) {          // выполняется защита от самоприсваивания
             Vector temp(other);        // данные копируются во временный объект
@@ -97,7 +97,7 @@ public:
         return *this;
     }
 
-    // Присваивание перемещением: своя память освобождается, чужая забирается
+    // Присваивание перемещением своя память освобождается, чужая забирается
     Vector& operator=(Vector&& other) noexcept {
         if (this != &other) {
             delete[] data;
@@ -148,22 +148,18 @@ public:
         --sz;
     }
 
-    // Обмен содержимым (используется в copy-and-swap)
+    // Обмен содержимым ( в copy-and-swap)
     void swap(Vector& other) noexcept {
         std::swap(data, other.data);
         std::swap(sz,   other.sz);
         std::swap(cap,  other.cap);
     }
 
-    // Итераторы: в данном случае это просто указатели
+    // Итераторы ( просто указатели )
     T*       begin()       { return data;      }
     T*       end()         { return data + sz; }
     const T* begin() const { return data;      }
     const T* end()   const { return data + sz; }
-
-    // ============================================================
-    //                Вариант 5: операторы + и *
-    // ============================================================
 
     // Конкатенация: создаётся новый вектор, элементы копируются
     // Сложность O(n + m), где n = this->sz, m = other.sz.
@@ -197,7 +193,7 @@ int main() {
     for (int i = 1; i <= 5; ++i) a.push_back(i);        // a = [1,2,3,4,5]
     for (int i = 1; i <= 3; ++i) b.push_back(i * 10);   // b = [10,20,30]
 
-    // Утилита вывода: вектор перебирается через range-based for
+    // Утилита вывода вектор перебирается через range-based for
     auto print = [](const char* name, const Vector<int>& v) {
         std::cout << name << " = ";
         for (int x : v) std::cout << x << " ";
