@@ -1,0 +1,162 @@
+#include <iostream>
+#include <chrono>
+#include <cstdlib>
+#include <stdexcept>
+
+using namespace std;
+
+// ===================== РЕКУРСИВНЫЕ АЛГОРИТМЫ =====================
+
+// Факториал n! = 1·2·…·n. База: n ≤ 1. Шаг: n * factorial(n-1).
+long long factorial(int n) {
+    if (n < 0) throw invalid_argument("n must be >= 0");
+    if (n <= 1) return 1;
+    return n * factorial(n - 1);
+}
+
+// Фибоначчи с мемоизацией: кэш устраняет повторные вычисления.
+long long fib(int n, long long* memo) {
+    if (n <= 1) return n;
+    if (memo[n] != -1) return memo[n];
+    return memo[n] = fib(n - 1, memo) + fib(n - 2, memo);
+}
+
+long long fib(int n) {
+    if (n < 0) throw invalid_argument("n must be >= 0");
+    long long* memo = new long long[n + 1];
+    for (int i = 0; i <= n; ++i) memo[i] = -1;
+    long long r = fib(n, memo);
+    delete[] memo;
+    return r;
+}
+
+// Сумма массива: рекурсивно отрезать последний элемент.
+long long sumArray(const int* arr, int n) {
+    if (n <= 0) return 0;
+    return arr[n - 1] + sumArray(arr, n - 1);
+}
+
+// Ханойские башни: перенести n дисков с from на to через aux.
+void hanoi(int n, char from, char to, char aux, long long& moves) {
+    if (n == 1) {
+        cout << "  Переместить диск 1 с " << from << " на " << to << "\n";
+        ++moves;
+        return;
+    }
+    hanoi(n - 1, from, aux, to, moves);
+    cout << "  Переместить диск " << n << " с " << from << " на " << to << "\n";
+    ++moves;
+    hanoi(n - 1, aux, to, from, moves);
+}
+
+// ===================== ПРОСТЫЕ СОРТИРОВКИ =====================
+
+// Счётчики операций: фиксировать число сравнений и обменов.
+struct Stats {
+    long long comparisons = 0;
+    long long swaps = 0;
+};
+
+// Пузырьковая сортировка
+// Сложность: O(n²) или O(n)
+void bubbleSort(int* a, int n, Stats& s) {
+    for (int i = 0; i < n - 1; ++i) {
+        bool swapped = false;
+        for (int j = 0; j < n - i - 1; ++j) {
+            ++s.comparisons;
+            if (a[j] > a[j + 1]) {
+                swap(a[j], a[j + 1]);
+                ++s.swaps;
+                swapped = true;
+            }
+        }
+        if (!swapped) break;
+    }
+}
+
+// Сортировка выбором 
+// Сложность: O(n²)
+void selectionSort(int* a, int n, Stats& s) {
+    for (int i = 0; i < n - 1; ++i) {
+        int minIdx = i;
+        for (int j = i + 1; j < n; ++j) {
+            ++s.comparisons;
+            if (a[j] < a[minIdx]) minIdx = j;
+        }
+        if (minIdx != i) {
+            swap(a[i], a[minIdx]);
+            ++s.swaps;
+        }
+    }
+}
+
+// Копировать массива для одинаковых искодных данных
+int* copyArray(const int* src, int n) {
+    int* dst = new int[n];
+    for (int i = 0; i < n; ++i) dst[i] = src[i];
+    return dst;
+}
+
+// ===================== ДЕМОНСТРАЦИЯ =====================
+int main() {
+    setlocale(LC_ALL, "ru");
+
+    cout << "===== 1. Факториал =====\n";
+    for (int n : {0, 1, 5, 10, 15})
+        cout << n << "! = " << factorial(n) << "\n";
+
+    cout << "\n===== 2. Числа Фибоначчи =====\n";
+    for (int n : {0, 1, 10, 20, 30, 50})
+        cout << "F(" << n << ") = " << fib(n) << "\n";
+
+    cout << "\n===== 3. Сумма элементов массива =====\n";
+    int arr[] = {3, 7, 1, 9, 4, 2, 8};
+    int n = sizeof(arr) / sizeof(arr[0]);
+    cout << "Массив: [";
+    for (int i = 0; i < n; ++i) cout << arr[i] << (i + 1 < n ? ", " : "");
+    cout << "]\nСумма = " << sumArray(arr, n) << "\n";
+
+    cout << "\n===== 4. Ханойские башни (4 диска) =====\n";
+    long long moves = 0;
+    hanoi(4, 'A', 'C', 'B', moves);
+    cout << "Всего ходов: " << moves << " (ожидается 15)\n";
+
+    // 5. Сортировки: пузырьковая и выбором.
+    cout << "\n===== 5. Сравнение сортировок =====\n";
+    const int N = 500;
+    int* base = new int[N];
+    srand(42);
+    for (int i = 0; i < N; ++i) base[i] = rand() % 1000;
+
+    int* a1 = copyArray(base, N);
+    int* a2 = copyArray(base, N);
+
+    Stats s1, s2;
+    auto t1 = chrono::high_resolution_clock::now();
+    bubbleSort(a1, N, s1);
+    auto t2 = chrono::high_resolution_clock::now();
+    auto dur1 = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
+
+    auto t3 = chrono::high_resolution_clock::now();
+    selectionSort(a2, N, s2);
+    auto t4 = chrono::high_resolution_clock::now();
+    auto dur2 = chrono::duration_cast<chrono::microseconds>(t4 - t3).count();
+
+    cout << "Пузырьковая: " << dur1 << " мкс, сравнений = " << s1.comparisons
+         << ", обменов = " << s1.swaps << "\n";
+    cout << "Выбором:     " << dur2 << " мкс, сравнений = " << s2.comparisons
+         << ", обменов = " << s2.swaps << "\n";
+
+    bool ok = true;
+    for (int i = 0; i < N; ++i) if (a1[i] != a2[i]) { ok = false; break; }
+    cout << "Результаты совпадают: " << (ok ? "да" : "нет") << "\n";
+
+    bool sorted = true;
+    for (int i = 0; i + 1 < N; ++i) if (a1[i] > a1[i + 1]) { sorted = false; break; }
+    cout << "Массив отсортирован: " << (sorted ? "да" : "нет") << "\n";
+
+    delete[] base;
+    delete[] a1;
+    delete[] a2;
+    return 0;
+}
