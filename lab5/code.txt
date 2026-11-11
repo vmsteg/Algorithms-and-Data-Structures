@@ -1,0 +1,355 @@
+#include <iostream>
+#include <stdexcept>
+#include <utility>
+
+using namespace std;
+
+// ===================== СТЕК (на динамическом массиве) =====================
+template <typename T>
+class Stack {
+    T*  data = nullptr;   // буфер для элементов
+    int topIndex = -1;    // индекс вершины; -1 означает «пусто»
+    int capacity = 0;     // текущая ёмкость буфера
+
+    // Расширение буфера вдвое; амортизированная стоимость O(1) на push.
+    void resize() {
+        int newCap = capacity == 0 ? 1 : capacity * 2;
+        T* newData = new T[newCap];
+        for (int i = 0; i <= topIndex; ++i) newData[i] = data[i];
+        delete[] data;
+        data = newData;
+        capacity = newCap;
+    }
+
+public:
+    Stack() = default;
+    ~Stack() { delete[] data; }
+    Stack(const Stack&) = delete;
+    Stack& operator=(const Stack&) = delete;
+
+    // Помещение на вершину: O(1) амортизированно.
+    void push(const T& v) {
+        if (topIndex >= capacity - 1) resize();
+        data[++topIndex] = v;
+    }
+
+    // Снятие с вершины: O(1). Пустой стек — исключение.
+    T pop() {
+        if (isEmpty()) throw underflow_error("Stack is empty");
+        return data[topIndex--];
+    }
+
+    // Просмотр вершины без удаления: O(1).
+    T top() const {
+        if (isEmpty()) throw underflow_error("Stack is empty");
+        return data[topIndex];
+    }
+
+    bool isEmpty() const { return topIndex == -1; }
+    int  size()    const { return topIndex + 1; }
+
+    // по возрастанию (вершина — максимум).
+    // большие элементы обратно в исходный стек. Время — O(n²).
+    void sort() {
+        Stack<T> tmp;
+        while (!isEmpty()) {
+            T x = pop();
+            while (!tmp.isEmpty() && tmp.top() > x) push(tmp.pop());
+            tmp.push(x);
+        }
+        while (!tmp.isEmpty()) push(tmp.pop());
+    }
+
+    void print(const string& name = "") const {
+        if (!name.empty()) cout << name << ": ";
+        cout << "top -> ";
+        for (int i = topIndex; i >= 0; --i) cout << data[i] << " ";
+        cout << "\n";
+    }
+};
+
+// ===================== ОЧЕРЕДЬ С ПРИОРИТЕТОМ =====================
+template <typename T>
+class PriorityQueueFIFO {
+    struct Item { T value; int priority; };
+    Item* data = nullptr;
+    int   sz = 0;
+    int   cap = 0;
+
+    void reserve(int newCap) {
+        if (newCap <= cap) return;
+        Item* nd = new Item[newCap];
+        for (int i = 0; i < sz; ++i) nd[i] = data[i];
+        delete[] data;
+        data = nd;
+        cap = newCap;
+    }
+
+public:
+    PriorityQueueFIFO() = default;
+    ~PriorityQueueFIFO() { delete[] data; }
+    PriorityQueueFIFO(const PriorityQueueFIFO&) = delete;
+    PriorityQueueFIFO& operator=(const PriorityQueueFIFO&) = delete;
+
+    // Постановка в очередь с указанным приоритетом (по умолчанию 0): O(1) аморт.
+    void enqueue(const T& v, int priority = 0) {
+        if (sz >= cap) reserve(cap == 0 ? 4 : cap * 2);
+        data[sz++] = {v, priority};
+    }
+
+    // Извлечение максимума приоритета: поиск O(n) + сдвиг O(n).
+    T dequeue() {
+        if (isEmpty()) throw underflow_error("Queue is empty");
+        int best = 0;
+        for (int i = 1; i < sz; ++i)
+            if (data[i].priority > data[best].priority) best = i;
+        T res = data[best].value;
+        for (int i = best; i < sz - 1; ++i) data[i] = data[i + 1];
+        --sz;
+        return res;
+    }
+
+    // Просмотр максимума без извлечения: O(n).
+    T front() const {
+        if (isEmpty()) throw underflow_error("Queue is empty");
+        int best = 0;
+        for (int i = 1; i < sz; ++i)
+            if (data[i].priority > data[best].priority) best = i;
+        return data[best].value;
+    }
+
+    bool isEmpty() const { return sz == 0; }
+    int  size()    const { return sz; }
+};
+
+// ===================== ДЕК (на двусвязном списке) =====================
+// Двусвязный список даёт O(1) на все операции с обоими концами
+template <typename T>
+class Deque {
+    struct Node {
+        T data;
+        Node* prev;
+        Node* next;
+        explicit Node(const T& v) : data(v), prev(nullptr), next(nullptr) {}
+    };
+    Node* head = nullptr;
+    Node* tail = nullptr;
+    int   count = 0;
+
+public:
+    Deque() = default;
+    ~Deque() { clear(); }
+    Deque(const Deque&) = delete;
+    Deque& operator=(const Deque&) = delete;
+
+    // Вставки в начало/конец: O(1).
+    void push_front(const T& v) {
+        Node* n = new Node(v);
+        if (!head) head = tail = n;
+        else { n->next = head; head->prev = n; head = n; }
+        ++count;
+    }
+    void push_back(const T& v) {
+        Node* n = new Node(v);
+        if (!tail) head = tail = n;
+        else { tail->next = n; n->prev = tail; tail = n; }
+        ++count;
+    }
+
+    // Удаления с начала/конца: O(1). Пустой дек — исключение
+    T pop_front() {
+        if (isEmpty()) throw underflow_error("Deque is empty");
+        Node* t = head; T v = t->data;
+        head = head->next;
+        if (head) head->prev = nullptr; else tail = nullptr;
+        delete t; --count; return v;
+    }
+    T pop_back() {
+        if (isEmpty()) throw underflow_error("Deque is empty");
+        Node* t = tail; T v = t->data;
+        tail = tail->prev;
+        if (tail) tail->next = nullptr; else head = nullptr;
+        delete t; --count; return v;
+    }
+
+    // Просмотр крайних элементов без удаления: O(1).
+    T front() const {
+        if (isEmpty()) throw underflow_error("Deque is empty");
+        return head->data;
+    }
+    T back() const {
+        if (isEmpty()) throw underflow_error("Deque is empty");
+        return tail->data;
+    }
+
+    void reverse() {
+        for (Node* cur = head; cur; ) {
+            Node* nxt = cur->next;
+            swap(cur->prev, cur->next);
+            cur = nxt;
+        }
+        swap(head, tail);
+    }
+
+    void print() const {
+        cout << "[";
+        for (Node* cur = head; cur; cur = cur->next) {
+            cout << cur->data;
+            if (cur->next) cout << ", ";
+        }
+        cout << "]\n";
+    }
+
+    // Освобождение памяти
+    void clear() {
+        while (head) { Node* t = head; head = head->next; delete t; }
+        tail = nullptr; count = 0;
+    }
+    bool isEmpty() const { return count == 0; }
+    int  size()    const { return count; }
+};
+
+// ===================== ПРИОРИТЕТНАЯ ОЧЕРЕДЬ (max-heap с изменением приоритета) =====================
+// Двоичная куча в массиве: push/pop — O(log n), top — O(1).
+// Каждому элементу присваивается уникальный id для операции изменения
+template <typename T>
+class PriorityQueue {
+    struct Item { T value; int priority; int id; };
+    Item* heap = nullptr;
+    int   count = 0;
+    int   capacity = 0;
+    int   nextId = 0;
+
+    void reserve(int newCap) {
+        if (newCap <= capacity) return;
+        Item* nh = new Item[newCap];
+        for (int i = 0; i < count; ++i) nh[i] = heap[i];
+        delete[] heap;
+        heap = nh;
+        capacity = newCap;
+    }
+
+    // Просеивание вверх: восстанавление свойства кучи после push.
+    void heapifyUp(int i) {
+        while (i > 0) {
+            int p = (i - 1) / 2;
+            if (heap[i].priority > heap[p].priority) { swap(heap[i], heap[p]); i = p; }
+            else break;
+        }
+    }
+
+    // Просеивание вниз: восстанавление свойства кучи после pop
+    void heapifyDown(int i) {
+        while (true) {
+            int l = 2 * i + 1, r = 2 * i + 2, largest = i;
+            if (l < count && heap[l].priority > heap[largest].priority) largest = l;
+            if (r < count && heap[r].priority > heap[largest].priority) largest = r;
+            if (largest == i) break;
+            swap(heap[i], heap[largest]);
+            i = largest;
+        }
+    }
+
+public:
+    PriorityQueue() = default;
+    ~PriorityQueue() { delete[] heap; }
+    PriorityQueue(const PriorityQueue&) = delete;
+    PriorityQueue& operator=(const PriorityQueue&) = delete;
+
+    // Добавление: O(log n). Возвращение  id 
+    int push(const T& v, int priority) {
+        if (count >= capacity) reserve(capacity == 0 ? 8 : capacity * 2);
+        heap[count] = {v, priority, nextId};
+        heapifyUp(count);
+        ++count;
+        return nextId++;
+    }
+
+    // Извлечение максимума: O(log n) корень заменяется последним элементом затем просеивается вниз
+    T pop() {
+        if (isEmpty()) throw underflow_error("PriorityQueue is empty");
+        T res = heap[0].value;
+        heap[0] = heap[--count];
+        if (count > 0) heapifyDown(0);
+        return res;
+    }
+
+    // Просмотр максимума: O(1).
+    T top() const {
+        if (isEmpty()) throw underflow_error("PriorityQueue is empty");
+        return heap[0].value;
+    }
+    
+    // Поиск в куче — O(n), восстановление свойств — O(log n).
+    // Одно из просеиваний (вверх или вниз) срабатывает, второе не меняет структуру.
+    void changePriority(int id, int newPriority) {
+        for (int i = 0; i < count; ++i) {
+            if (heap[i].id == id) {
+                heap[i].priority = newPriority;
+                heapifyUp(i);
+                heapifyDown(i);
+                return;
+            }
+        }
+    }
+
+    bool isEmpty() const { return count == 0; }
+    int  size()    const { return count; }
+
+    void print() const {
+        cout << "heap: ";
+        for (int i = 0; i < count; ++i)
+            cout << "(" << heap[i].value << ", p=" << heap[i].priority << ") ";
+        cout << "\n";
+    }
+};
+
+// ===================== ДЕМОНСТРАЦИЯ =====================
+int main() {
+    setlocale(LC_ALL, "ru");
+
+    // --- 1. Стек: сортировка ---
+    cout << "===== 1. Стек: сортировка =====\n";
+    Stack<int> s;
+    for (int v : {5, 2, 8, 1, 9, 3}) s.push(v);
+    s.print("до  ");
+    s.sort();
+    s.print("после");
+
+    // --- 2. Очередь с приоритетом ---
+    cout << "\n===== 2. Очередь с приоритетом =====\n";
+    PriorityQueueFIFO<string> q;
+    q.enqueue("A", 1);
+    q.enqueue("B", 5);
+    q.enqueue("C", 2);
+    q.enqueue("D", 5);
+    while (!q.isEmpty()) cout << q.dequeue() << " ";
+    cout << "\n";
+
+    // --- 3. Дек: reverse ---
+    cout << "\n===== 3. Дек: reverse =====\n";
+    Deque<int> d;
+    for (int i = 1; i <= 5; ++i) d.push_back(i * 10);
+    cout << "до:    "; d.print();
+    d.reverse();
+    cout << "после: "; d.print();
+
+    // --- 4. Приоритетная очередь с изменением приоритета ---
+    cout << "\n===== 4. Приоритетная очередь: смена приоритета =====\n";
+    PriorityQueue<string> pq;
+    int idA = pq.push("A", 3);
+    int idB = pq.push("B", 1);
+    pq.push("C", 5);
+    pq.print();
+
+    cout << "top: " << pq.top() << "\n";
+    pq.changePriority(idB, 10);
+    cout << "После B=10: "; pq.print();
+    cout << "top: " << pq.top() << "\n";
+
+    while (!pq.isEmpty()) cout << pq.pop() << " ";
+    cout << "\n";
+    (void)idA;
+
+    return 0;
+}
