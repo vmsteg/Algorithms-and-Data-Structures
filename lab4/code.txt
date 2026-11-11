@@ -1,0 +1,320 @@
+#include <iostream>
+#include <stdexcept>
+#include <utility>
+
+using namespace std;
+
+// ===================== ОДНОСВЯЗНЫЙ СПИСОК =====================
+// Узел содержит значение и указатель на следующий элемент.
+template <typename T>
+class SinglyLinkedList {
+    struct Node {
+        T data;
+        Node* next;
+        explicit Node(const T& v) : data(v), next(nullptr) {}
+    };
+
+    Node* head = nullptr;   // первый узел
+    Node* tail = nullptr;   // последний узел — O(1) для push_back
+    int   count = 0;        // число элементов
+
+    // ---------- Вспомогательные методы сортировки слиянием ----------
+
+    // Разделение списка пополам: slow — 1 шаг, fast — 2.
+    // Возвращает начало второй половины.
+    static Node* split(Node* src) {
+        Node* slow = src;
+        Node* fast = src->next;
+        while (fast && fast->next) {
+            slow = slow->next;
+            fast = fast->next->next;
+        }
+        Node* second = slow->next;
+        slow->next = nullptr;           // разрыв связи
+        return second;
+    }
+
+    // Слияние двух упорядоченных списков
+    static Node* merge(Node* a, Node* b) {
+        if (!a) return b;
+        if (!b) return a;
+        if (a->data <= b->data) {
+            a->next = merge(a->next, b);
+            return a;
+        }
+        b->next = merge(a, b->next);
+        return b;
+    }
+
+    // Рекурсивная сортировка: базовый случай — 0/1 узел,
+    static Node* sortRec(Node* n) {
+        if (!n || !n->next) return n;
+        Node* second = split(n);
+        return merge(sortRec(n), sortRec(second));
+    }
+
+public:
+    SinglyLinkedList() = default;
+    ~SinglyLinkedList() { clear(); }
+
+    // Копирование запрещено — иначе двойное освобождение узлов.
+    SinglyLinkedList(const SinglyLinkedList&) = delete;
+    SinglyLinkedList& operator=(const SinglyLinkedList&) = delete;
+
+    // Вставка в начало: O(1).
+    void push_front(const T& v) {
+        Node* n = new Node(v);
+        n->next = head;
+        head = n;
+        if (!tail) tail = n;
+        ++count;
+    }
+
+    // Вставка в конец: O(1)
+    void push_back(const T& v) {
+        Node* n = new Node(v);
+        if (!head) head = tail = n;
+        else { tail->next = n; tail = n; }
+        ++count;
+    }
+
+    // Удаление из начала: O(1).
+    void pop_front() {
+        if (!head) throw underflow_error("empty");
+        Node* t = head;
+        head = head->next;
+        delete t;
+        --count;
+        if (!head) tail = nullptr;
+    }
+
+    // Удаление из конца: O(n) 
+    void pop_back() {
+        if (!head) throw underflow_error("empty");
+        if (!head->next) {
+            delete head;
+            head = tail = nullptr;
+        } else {
+            Node* cur = head;
+            while (cur->next != tail) cur = cur->next;
+            delete tail;
+            tail = cur;
+            tail->next = nullptr;
+        }
+        --count;
+    }
+
+    // Поиск по значению: O(n).
+    Node* find(const T& v) const {
+        for (Node* cur = head; cur; cur = cur->next)
+            if (cur->data == v) return cur;
+        return nullptr;
+    }
+
+    // Сортировка слиянием: O(n log n), без доп. памяти (кроме стека).
+    void mergeSort() {
+        if (!head || !head->next) return;
+        head = sortRec(head);
+        tail = head;
+        while (tail->next) tail = tail->next;
+    }
+
+    // Вывод: [a, b, c].
+    void print() const {
+        cout << "[";
+        for (Node* cur = head; cur; cur = cur->next) {
+            cout << cur->data;
+            if (cur->next) cout << ", ";
+        }
+        cout << "]\n";
+    }
+
+    // Освобождение памяти и сброс состояния.
+    void clear() {
+        while (head) { Node* t = head; head = head->next; delete t; }
+        tail = nullptr;
+        count = 0;
+    }
+
+    int  size()  const { return count; }
+    bool empty() const { return head == nullptr; }
+    Node* getHead() const { return head; }
+};
+
+// ===================== ДВУСВЯЗНЫЙ СПИСОК =====================
+// prev обеспечивает O(1) на удаление с конца и удаление известного узла.
+template <typename T>
+class DoublyLinkedList {
+    struct Node {
+        T data;
+        Node* prev;
+        Node* next;
+        explicit Node(const T& v) : data(v), prev(nullptr), next(nullptr) {}
+    };
+
+    Node* head = nullptr;
+    Node* tail = nullptr;
+    int   count = 0;
+
+public:
+    // Минимальный прямой итератор
+    class Iterator {
+        Node* ptr;
+    public:
+        explicit Iterator(Node* p = nullptr) : ptr(p) {}
+        T& operator*() { return ptr->data; }
+        Iterator& operator++() { ptr = ptr->next; return *this; }
+        bool operator==(const Iterator& o) const { return ptr == o.ptr; }
+        bool operator!=(const Iterator& o) const { return ptr != o.ptr; }
+    };
+
+    DoublyLinkedList() = default;
+    ~DoublyLinkedList() { clear(); }
+    DoublyLinkedList(const DoublyLinkedList&) = delete;
+    DoublyLinkedList& operator=(const DoublyLinkedList&) = delete;
+
+    void push_front(const T& v) {
+        Node* n = new Node(v);
+        if (!head) head = tail = n;
+        else { n->next = head; head->prev = n; head = n; }
+        ++count;
+    }
+
+    void push_back(const T& v) {
+        Node* n = new Node(v);
+        if (!tail) head = tail = n;
+        else { tail->next = n; n->prev = tail; tail = n; }
+        ++count;
+    }
+
+    // Удаления: обе O(1) 
+    void pop_front() {
+        if (!head) throw underflow_error("empty");
+        Node* t = head;
+        head = head->next;
+        if (head) head->prev = nullptr;
+        else      tail = nullptr;
+        delete t;
+        --count;
+    }
+
+    void pop_back() {
+        if (!tail) throw underflow_error("empty");
+        Node* t = tail;
+        tail = tail->prev;
+        if (tail) tail->next = nullptr;
+        else      head = nullptr;
+        delete t;
+        --count;
+    }
+
+    // Поиск: O(n).
+    Node* find(const T& v) const {
+        for (Node* cur = head; cur; cur = cur->next)
+            if (cur->data == v) return cur;
+        return nullptr;
+    }
+
+    // Вставка после узла: O(1).
+    void insert_after(Node* node, const T& v) {
+        if (!node) { push_front(v); return; }
+        Node* n = new Node(v);
+        n->next = node->next;
+        n->prev = node;
+        if (node->next) node->next->prev = n;
+        else            tail = n;
+        node->next = n;
+        ++count;
+    }
+
+    // Удаление узла: O(1);
+    void erase(Node* node) {
+        if (!node) return;
+        if (node == head) { pop_front(); return; }
+        if (node == tail) { pop_back();  return; }
+        node->prev->next = node->next;
+        node->next->prev = node->prev;
+        delete node;
+        --count;
+    }
+
+    // Реверс: O(n) 
+    void reverse() {
+        for (Node* cur = head; cur; ) {
+            Node* nxt = cur->next;
+            swap(cur->prev, cur->next);
+            cur = nxt;
+        }
+        swap(head, tail);
+    }
+
+    void print() const {
+        cout << "[";
+        for (Node* cur = head; cur; cur = cur->next) {
+            cout << cur->data;
+            if (cur->next) cout << ", ";
+        }
+        cout << "]\n";
+    }
+
+    void printReverse() const {
+        cout << "[";
+        for (Node* cur = tail; cur; cur = cur->prev) {
+            cout << cur->data;
+            if (cur->prev) cout << ", ";
+        }
+        cout << "]\n";
+    }
+
+    void clear() {
+        while (head) { Node* t = head; head = head->next; delete t; }
+        tail = nullptr;
+        count = 0;
+    }
+
+    int  size()  const { return count; }
+    bool empty() const { return head == nullptr; }
+
+    Iterator begin() { return Iterator(head); }
+    Iterator end()   { return Iterator(nullptr); }
+};
+
+// ===================== ДЕМОНСТРАЦИЯ =====================
+int main() {
+    setlocale(LC_ALL, "ru");
+
+    // --- 1. Односвязный список: mergeSort ---
+    cout << "===== SinglyLinkedList: mergeSort =====\n";
+    SinglyLinkedList<int> s;
+    for (int v : {42, 7, 19, 3, 88, 15, 1, 56, 24, 9}) s.push_back(v);
+
+    cout << "До:     "; s.print();
+    s.mergeSort();
+    cout << "После:  "; s.print();
+
+    // Проверка корректности tail после сортировки.
+    s.push_back(100);
+    cout << "+100:   "; s.print();
+
+    // --- 2. Двусвязный список: итератор, reverse, O(1)-операции ---
+    cout << "\n===== DoublyLinkedList: итератор, reverse =====\n";
+    DoublyLinkedList<int> d;
+    for (int i = 1; i <= 6; ++i) d.push_back(i * 10);
+
+    cout << "Прямой:   "; d.print();
+    cout << "Обратный: "; d.printReverse();
+
+    cout << "Обход:    ";
+    for (auto it = d.begin(); it != d.end(); ++it) cout << *it << " ";
+    cout << "\n";
+
+    d.reverse();
+    cout << "Reverse:  "; d.print();
+
+    if (auto* n = d.find(30)) d.insert_after(n, 999);
+    cout << "insert:   "; d.print();
+    if (auto* n = d.find(999)) d.erase(n);
+    cout << "erase:    "; d.print();
+
+    return 0;
+}
