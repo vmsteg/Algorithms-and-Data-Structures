@@ -1,0 +1,64 @@
+#include <iostream>
+#include <vector>
+using namespace std;
+
+// ---------- Обычная быстрая сортировка (нестабильная) ----------
+int partition(vector<int>& a, int low, int high) {
+    int pivot = a[high];
+    int i = low - 1;
+    for (int j = low; j < high; j++)
+        if (a[j] <= pivot) swap(a[++i], a[j]);
+    swap(a[i + 1], a[high]);
+    return i + 1;
+}
+
+void quickSort(vector<int>& a, int low, int high) {
+    if (low < high) {
+        int p = partition(a, low, high);
+        quickSort(a, low, p - 1);
+        quickSort(a, p + 1, high);
+    }
+}
+
+// ---------- Стабильная быстрая сортировка ----------
+// Разбиение на 3 части
+void stableQuickSort(vector<int>& a) {
+    if (a.size() <= 1) return;
+
+    int pivot = a[a.size() / 2];
+    vector<int> less, equal, greater;
+
+    for (int x : a) {                 // проход слева направо = устойчивость
+        if (x < pivot)      less.push_back(x);
+        else if (x > pivot) greater.push_back(x);
+        else                equal.push_back(x);
+    }
+
+    stableQuickSort(less);
+    stableQuickSort(greater);
+
+    a.clear();
+    for (int x : less)    a.push_back(x);
+    for (int x : equal)   a.push_back(x);
+    for (int x : greater) a.push_back(x);
+}
+
+// ---------- Проверка ----------
+void print(const vector<int>& a) {
+    for (int x : a) cout << x << " ";
+    cout << "\n";
+}
+
+int main() {
+    vector<int> a = {64, 34, 25, 12, 22, 11, 90, 5};
+
+    vector<int> b = a;
+    quickSort(b, 0, b.size() - 1);
+    cout << "Quick Sort:        "; print(b);
+
+    vector<int> c = a;
+    stableQuickSort(c);
+    cout << "Stable Quick Sort: "; print(c);
+
+    return 0;
+}
