@@ -1,0 +1,157 @@
+#include <iostream>
+#include <queue>
+#include <vector>
+#include <cstdlib>
+using namespace std;
+
+// ===================== Узел =====================
+struct Node {
+    int data;
+    Node* left;
+    Node* right;
+    Node(int v) : data(v), left(nullptr), right(nullptr) {}
+};
+
+// ===================== Обходы=====================
+void preOrder(Node* n) {
+    if (!n) return;
+    cout << n->data << " ";
+    preOrder(n->left);
+    preOrder(n->right);
+}
+
+void inOrder(Node* n) {
+    if (!n) return;
+    inOrder(n->left);
+    cout << n->data << " ";
+    inOrder(n->right);
+}
+
+void postOrder(Node* n) {
+    if (!n) return;
+    postOrder(n->left);
+    postOrder(n->right);
+    cout << n->data << " ";
+}
+
+// Минимальный элемент
+int findMin(Node* n) {
+    if (!n) return 1e9;
+    return min(n->data, min(findMin(n->left), findMin(n->right)));
+}
+
+// ===================== BST =====================
+Node* insert(Node* n, int key) {
+    if (!n) return new Node(key);
+    if (key < n->data)      n->left  = insert(n->left, key);
+    else if (key > n->data) n->right = insert(n->right, key);
+    return n;
+}
+
+bool search(Node* n, int key) {
+    if (!n) return false;
+    if (n->data == key) return true;
+    return key < n->data ? search(n->left, key) : search(n->right, key);
+}
+
+Node* findMinNode(Node* n) {
+    while (n && n->left) n = n->left;
+    return n;
+}
+
+Node* remove(Node* n, int key) {
+    if (!n) return nullptr;
+    if (key < n->data)      n->left  = remove(n->left, key);
+    else if (key > n->data) n->right = remove(n->right, key);
+    else {
+        if (!n->left)  { Node* t = n->right; delete n; return t; }
+        if (!n->right) { Node* t = n->left;  delete n; return t; }
+        Node* m = findMinNode(n->right);
+        n->data = m->data;
+        n->right = remove(n->right, m->data);
+    }
+    return n;
+}
+
+int height(Node* n) {
+    if (!n) return 0;
+    return 1 + max(height(n->left), height(n->right));
+}
+
+// Преемник (наименьший ключ > key)
+bool successor(Node* n, int key, int& res) {
+    if (!n) return false;
+    if (n->data > key) {
+        res = n->data;
+        successor(n->left, key, res);
+        return true;
+    }
+    return successor(n->right, key, res);
+}
+
+void destroy(Node* n) {
+    if (!n) return;
+    destroy(n->left);
+    destroy(n->right);
+    delete n;
+}
+
+int main() {
+    // ---- Демонстрация обходов ----
+    Node* demo = new Node(10);
+    demo->left = new Node(5);   demo->right = new Node(15);
+    demo->left->left = new Node(3);   demo->left->right = new Node(7);
+    demo->right->right = new Node(20);
+    demo->left->right->left = new Node(6);
+    demo->right->right->left = new Node(18);
+
+    cout << "pre-order : "; preOrder(demo);  cout << "\n";
+    cout << "in-order  : "; inOrder(demo);   cout << "\n";
+    cout << "post-order: "; postOrder(demo); cout << "\n";
+    cout << "min       : " << findMin(demo) << "\n\n";
+    destroy(demo);
+
+    // ---- BST из 20 случайных чисел ----
+    srand(42);
+    Node* root = nullptr;
+    vector<int> used;
+    while (used.size() < 20) {
+        int v = rand() % 100 + 1;
+        bool dup = false;
+        for (int u : used) if (u == v) { dup = true; break; }
+        if (!dup) { root = insert(root, v); used.push_back(v); }
+    }
+
+    cout << "in-order: "; inOrder(root); cout << "\n";
+    cout << "min = " << findMinNode(root)->data
+         << ", max = " << findMinNode(root)->right
+            ? "" : "";
+    // max — самый правый узел:
+    Node* p = root; while (p->right) p = p->right;
+    cout << "min = " << findMinNode(root)->data << ", max = " << p->data << "\n";
+    cout << "height = " << height(root) << "\n";
+
+    // ---- Преемник ----
+    for (int k : {used[0], used[10], used[19]}) {
+        int s;
+        if (successor(root, k, s))
+            cout << "successor(" << k << ") = " << s << "\n";
+        else
+            cout << "successor(" << k << ") = нет (максимум)\n";
+    }
+
+    // ---- Удаление ----
+    int key;
+    cout << "Введите значение для удаления: ";
+    if (cin >> key) {
+        if (search(root, key)) {
+            root = remove(root, key);
+            cout << "После удаления: "; inOrder(root); cout << "\n";
+        } else {
+            cout << "Элемент " << key << " не найден\n";
+        }
+    }
+
+    destroy(root);
+    return 0;
+}
