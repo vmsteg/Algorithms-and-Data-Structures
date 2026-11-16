@@ -48,8 +48,7 @@ public:
     bool isEmpty() const { return topIndex == -1; }
     int  size()    const { return topIndex + 1; }
 
-    // по возрастанию (вершина — максимум).
-    // большие элементы обратно в исходный стек. Время — O(n²).
+    // Сортировка стека с использованием дополнительного стека.
     void sort() {
         Stack<T> tmp;
         while (!isEmpty()) {
@@ -122,8 +121,7 @@ public:
     int  size()    const { return sz; }
 };
 
-// ===================== ДЕК (на двусвязном списке) =====================
-// Двусвязный список даёт O(1) на все операции с обоими концами
+// ===================== ДЕК (на двусвязном списке) ====================
 template <typename T>
 class Deque {
     struct Node {
@@ -156,7 +154,7 @@ public:
         ++count;
     }
 
-    // Удаления с начала/конца: O(1). Пустой дек — исключение
+    // Удаления с начала/конца: O(1). Пустой дек — исключение.
     T pop_front() {
         if (isEmpty()) throw underflow_error("Deque is empty");
         Node* t = head; T v = t->data;
@@ -182,6 +180,7 @@ public:
         return tail->data;
     }
 
+    // Разворот дека: O(n)
     void reverse() {
         for (Node* cur = head; cur; ) {
             Node* nxt = cur->next;
@@ -200,7 +199,7 @@ public:
         cout << "]\n";
     }
 
-    // Освобождение памяти
+    // Освобождение памяти: проход от head, удаление узлов.
     void clear() {
         while (head) { Node* t = head; head = head->next; delete t; }
         tail = nullptr; count = 0;
@@ -209,9 +208,9 @@ public:
     int  size()    const { return count; }
 };
 
-// ===================== ПРИОРИТЕТНАЯ ОЧЕРЕДЬ (max-heap с изменением приоритета) =====================
+// ===================== ПРИОРИТЕТНАЯ ОЧЕРЕДЬ =====================
 // Двоичная куча в массиве: push/pop — O(log n), top — O(1).
-// Каждому элементу присваивается уникальный id для операции изменения
+// Каждому элементу присваивается id для операции изменения
 template <typename T>
 class PriorityQueue {
     struct Item { T value; int priority; int id; };
@@ -229,7 +228,7 @@ class PriorityQueue {
         capacity = newCap;
     }
 
-    // Просеивание вверх: восстанавление свойства кучи после push.
+    // Просеивание вверх: восстанавливает свойство кучи после push.
     void heapifyUp(int i) {
         while (i > 0) {
             int p = (i - 1) / 2;
@@ -238,7 +237,7 @@ class PriorityQueue {
         }
     }
 
-    // Просеивание вниз: восстанавление свойства кучи после pop
+    // Просеивание вниз: восстанавливает свойство кучи после pop
     void heapifyDown(int i) {
         while (true) {
             int l = 2 * i + 1, r = 2 * i + 2, largest = i;
@@ -256,7 +255,7 @@ public:
     PriorityQueue(const PriorityQueue&) = delete;
     PriorityQueue& operator=(const PriorityQueue&) = delete;
 
-    // Добавление: O(log n). Возвращение  id 
+    // Добавление: O(log n). Возвращает id для возможного изменения приоритета
     int push(const T& v, int priority) {
         if (count >= capacity) reserve(capacity == 0 ? 8 : capacity * 2);
         heap[count] = {v, priority, nextId};
@@ -265,7 +264,8 @@ public:
         return nextId++;
     }
 
-    // Извлечение максимума: O(log n) корень заменяется последним элементом затем просеивается вниз
+    // Извлечение максимума: O(log n)
+
     T pop() {
         if (isEmpty()) throw underflow_error("PriorityQueue is empty");
         T res = heap[0].value;
@@ -274,14 +274,13 @@ public:
         return res;
     }
 
-    // Просмотр максимума: O(1).
+    // Просмотр максимума O(1)
     T top() const {
         if (isEmpty()) throw underflow_error("PriorityQueue is empty");
         return heap[0].value;
     }
-    
-    // Поиск в куче — O(n), восстановление свойств — O(log n).
-    // Одно из просеиваний (вверх или вниз) срабатывает, второе не меняет структуру.
+
+    // Изменение приоритета по id: поиск в куче — O(n) восстановление свойств — O(log n).
     void changePriority(int id, int newPriority) {
         for (int i = 0; i < count; ++i) {
             if (heap[i].id == id) {
