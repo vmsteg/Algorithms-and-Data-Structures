@@ -234,8 +234,7 @@ public:
         return tail->data;
     }
 
-    // Разворот дека: O(n). У каждого узла меняются местами prev и next,
-    // затем переставляются указатели head и tail.
+    // Разворот дека: O(n)
     void reverse() {
         for (Node* cur = head; cur; ) {
             Node* nxt = cur->next;
