@@ -1,0 +1,210 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <algorithm>
+using namespace std;
+
+// ===================== СТУДЕНТ =====================
+// Счётчик всех студентов
+class Student {
+private:
+    string firstName, lastName, group;
+    static int totalCount;
+
+public:
+    Student(const string& fn, const string& ln, const string& gr)
+        : firstName(fn), lastName(ln), group(gr)
+    {
+        totalCount++;    // +1 при создании
+    }
+
+    ~Student() {
+        totalCount--;    // -1 при удалении
+    }
+
+    string getLastName()  const { return lastName; }
+    string getFirstName() const { return firstName; }
+
+    void print() const {
+        cout << "  " << lastName << " " << firstName
+             << ", группа " << group << endl;
+    }
+
+    // Статический метод — работает с счётчиком без объекта
+    static int getTotalCount() { return totalCount; }
+    static void printTotalCount() {
+        cout << "Всего студентов: " << totalCount << endl;
+    }
+};
+
+int Student::totalCount = 0;   // определение статического поля вне класса
+
+// ===================== КУРС =====================
+// Агрегация: студенты живут независимо от курса
+class Course {
+private:
+    string title, teacher;
+    vector<Student*> students;
+
+public:
+    Course(const string& t, const string& teach) : title(t), teacher(teach) {}
+
+    ~Course() { }   // студентов НЕ удаляем
+
+    string getTitle()   const { return title; }
+    string getTeacher() const { return teacher; }
+
+    // Добавить студента (просто кладём указатель)
+    void addStudent(Student* s) {
+        if (!s) return;                              // защита от nullptr
+        students.push_back(s);
+    }
+
+    // Убрать студента с курса (объект НЕ удаляем)
+    void removeStudent(Student* s) {
+        auto it = find(students.begin(), students.end(), s);
+        if (it != students.end()) students.erase(it);
+    }
+
+    size_t count() const { return students.size(); }
+
+    void print() const {
+        cout << "Курс: " << title << " | преподаватель: " << teacher
+             << " | студентов: " << students.size() << endl;
+        for (auto* s : students) if (s) s->print();
+    }
+};
+
+// ===================== УЧЕБНЫЙ ЦЕНТР (Singleton) =====================
+class TrainingCenter {
+private:
+    string name;
+    vector<Course*> courses;
+    static TrainingCenter* instance;
+
+    TrainingCenter(const string& n) : name(n) { }   // приватный конструктор
+    ~TrainingCenter() { }
+
+public:
+    TrainingCenter(const TrainingCenter&) = delete;             // запрет копирования
+    TrainingCenter& operator=(const TrainingCenter&) = delete;
+
+    // Вернуть единственный экземпляр
+    static TrainingCenter* getInstance(const string& n = "Учебный центр") {
+        if (!instance) instance = new TrainingCenter(n);
+        return instance;
+    }
+
+    static void destroyInstance() {     // ручное удаление для демонстрации
+        delete instance;
+        instance = nullptr;
+    }
+
+    // Добавить курс (агрегация)
+    void addCourse(Course* c) {
+        if (!c) return;
+        courses.push_back(c);
+    }
+
+    // Убрать курс из центра (объект НЕ удаляем)
+    void removeCourse(Course* c) {
+        auto it = find(courses.begin(), courses.end(), c);
+        if (it != courses.end()) courses.erase(it);
+    }
+
+    // Сколько всего студентов на всех курсах
+    size_t totalStudents() const {
+        size_t sum = 0;
+        for (auto* c : courses) if (c) sum += c->count();
+        return sum;
+    }
+
+    void print() const {
+        cout << "\nЦентр: " << name << endl;
+        cout << "  Курсов: " << courses.size() << endl;
+        for (auto* c : courses) if (c) { c->print(); cout << endl; }
+    }
+};
+
+TrainingCenter* TrainingCenter::instance = nullptr;   // определение Singleton
+
+// ===================== MAIN =====================
+int main() {
+    setlocale(LC_ALL, "ru");
+
+    // 1. Студенты создаются независимо от курсов
+    cout << "1. Создание студентов" << endl;
+    Student s1("Иван",    "Иванов",   "ПИЖ-25");
+    Student s2("Мария",   "Петрова",  "ПИЖ-25");
+    Student s3("Сергей",  "Сидоров",  "ПИЖ-25");
+    Student s4("Анна",    "Кузнецова","ПИЖ-25");
+    Student s5("Олег",    "Смирнов",  "ПИЖ-25");
+    Student::printTotalCount();
+
+    // 2. Курсы создаются независимо от центра
+    cout << "\n2. Создание курсов" << endl;
+    Course cpp("Программирование на C++", "доц. Алексеев");
+    Course algo("Алгоритмы",               "проф. Николаева");
+    Course db("Базы данных",               "доц. Орлов");
+    cpp.print();
+    algo.print();
+    db.print();
+
+    // 3. Один студент может быть сразу на нескольких курсах
+    cout << "\n3. Запись студентов" << endl;
+    cpp.addStudent(&s1);
+    cpp.addStudent(&s2);
+    cpp.addStudent(&s3);
+    algo.addStudent(&s1);      // s1 на двух курсах
+    algo.addStudent(&s4);
+    db.addStudent(&s5);
+    db.addStudent(&s2);        // s2 на двух курсах
+    cpp.print();
+    algo.print();
+    db.print();
+
+    // 4. Singleton: два вызова возвращают один объект
+    cout << "\n4. Singleton" << endl;
+    TrainingCenter* c1 = TrainingCenter::getInstance("НашЦентр");
+    TrainingCenter* c2 = TrainingCenter::getInstance("Другой");
+    cout << "c1 == c2: " << (c1 == c2) << endl;
+
+    c1->addCourse(&cpp);
+    c1->addCourse(&algo);
+    c1->addCourse(&db);
+    c1->print();
+    cout << "Всего студентов на курсах: " << c1->totalStudents() << endl;
+
+    // 5. Убираем курс из центра — сам курс жив
+    cout << "\n5. Удаление курса из центра" << endl;
+    c1->removeCourse(&db);
+    db.print();
+
+    // 6. Счётчик студентов
+    cout << "\n6. Счётчик" << endl;
+    Student::printTotalCount();
+
+    // 7. Отчисляем студента с курса — объект Student жив
+    cout << "\n7. Отчисление студента" << endl;
+    cpp.removeStudent(&s3);
+    cpp.print();
+    s3.print();
+
+    // 8. Уничтожаем Singleton — курсы и студенты живы
+    cout << "\n8. Уничтожение Singleton" << endl;
+    TrainingCenter::destroyInstance();
+
+    // 9. Проверяем, что всё на месте
+    cout << "\n9. Проверка" << endl;
+    cpp.print();
+    algo.print();
+    Student::printTotalCount();
+
+    // 10. Студенты доступны напрямую
+    cout << "\n10. Студенты напрямую" << endl;
+    s1.print();
+    s2.print();
+    s5.print();
+
+    return 0;   // здесь уничтожатся курсы, потом студенты
+}
